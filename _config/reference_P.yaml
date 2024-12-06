@@ -63,7 +63,7 @@ training_dataset: &training_dataset
   dir_pre: input_filtered
   dir_post: output
   dir_mask: mask
-  patch_size: 20
+  patch_size: 32
 
 
 # "Main" of this YAML file
