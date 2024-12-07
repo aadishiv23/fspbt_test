@@ -65,21 +65,21 @@ class GeneratorJ(nn.Module):
                                   norm_layer=self.norm_layer,
                                   nonlinearity=nn.ReLU()))
 
-        self.upconv2 = self.upconv_layer_upsample_and_conv(in_filters=filters[3] + filters[2],
-                                         # in_filters=filters[3], # disable skip-connections
-                                         out_filters=filters[4],
-                                         size=4, stride=2, padding=1,
-                                         bias=self.use_bias,
-                                         norm_layer=self.norm_layer,
-                                         nonlinearity=nn.ReLU())
+        self.upconv2 = self.upconv_layer_pixelshuffle(
+                            in_filters=filters[3] + filters[2],  # Add skip connection filters
+                            out_filters=filters[4],
+                            upscale_factor=2,
+                            norm_layer=self.norm_layer,
+                            nonlinearity=nn.ReLU()
+                        )
 
-        self.upconv1 = self.upconv_layer_upsample_and_conv(in_filters=filters[4] + filters[1],
-                                         # in_filters=filters[4],  # disable skip-connections
-                                         out_filters=filters[4],
-                                         size=4, stride=2, padding=1,
-                                         bias=self.use_bias,
-                                         norm_layer=self.norm_layer,
-                                         nonlinearity=nn.ReLU())
+        self.upconv1 = self.upconv_layer_pixelshuffle(
+            in_filters=filters[4] + filters[1],  # Add skip connection filters
+            out_filters=filters[4],
+            upscale_factor=2,
+            norm_layer=self.norm_layer,
+            nonlinearity=nn.ReLU()
+        )
 
         self.conv_11 = nn.Sequential(
             nn.Conv2d(in_channels=filters[0] + filters[4] + input_channels,
@@ -185,6 +185,20 @@ class GeneratorJ(nn.Module):
         if norm_layer:
             parts.append(norm_layer(num_features=out_filters))
 
+        if nonlinearity:
+            parts.append(nonlinearity)
+
+        return nn.Sequential(*parts)
+    
+    def upconv_layer_pixelshuffle(self, in_filters, out_filters, upscale_factor, norm_layer, nonlinearity):
+        parts = [
+            nn.Conv2d(in_filters, out_filters * (upscale_factor ** 2), kernel_size=3, padding=1, bias=False),
+            nn.PixelShuffle(upscale_factor)  # Perform upscaling
+        ]
+        
+        if norm_layer:
+            parts.append(norm_layer(num_features=out_filters))
+        
         if nonlinearity:
             parts.append(nonlinearity)
 
