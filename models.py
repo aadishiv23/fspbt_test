@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.autograd import Variable
 from torchvision import models
+import torch.nn.utils as nn_utils
 
 
 class UpsamplingLayer(nn.Module):
@@ -224,7 +225,7 @@ class DiscriminatorN_IN(nn.Module):
         else:
             self.norm_layer = nn.InstanceNorm2d
         self.net = self.make_net(n_layers, self.input_channels, 1, 4, 2, self.use_bias)
-    
+
     def make_net(self, n, flt_in, flt_out=1, k=4, stride=2, bias=True):
         padding = 1
         model = nn.Sequential()
@@ -236,19 +237,29 @@ class DiscriminatorN_IN(nn.Module):
         for l in range(1, n):
             flt_mult_prev = flt_mult
             flt_mult = min(2**(l), 8)
-            model.add_module('conv_%d'%(l), self.make_block(self.num_filters * flt_mult_prev, self.num_filters * flt_mult, 
-                                                              k, stride, padding, bias, self.norm_layer, nn.LeakyReLU))
-            
+            model.add_module('conv_%d' % (l), self.make_block(
+                self.num_filters * flt_mult_prev, 
+                self.num_filters * flt_mult, 
+                k, stride, padding, bias, self.norm_layer, nn.LeakyReLU))
+
         flt_mult_prev = flt_mult
         flt_mult = min(2**n, 8)
-        model.add_module('conv_%d'%(n), self.make_block(self.num_filters * flt_mult_prev, self.num_filters * flt_mult, 
-                                                        k, 1, padding, bias, self.norm_layer, nn.LeakyReLU))
-        model.add_module('conv_out', self.make_block(self.num_filters * flt_mult, 1, k, 1, padding, bias, None, None))
+        model.add_module('conv_%d' % (n), self.make_block(
+            self.num_filters * flt_mult_prev, 
+            self.num_filters * flt_mult, 
+            k, 1, padding, bias, self.norm_layer, nn.LeakyReLU))
+        model.add_module('conv_out', self.make_block(
+            self.num_filters * flt_mult, 
+            1, k, 1, padding, bias, None, None))
         return model
 
     def make_block(self, flt_in, flt_out, k, stride, padding, bias, norm, relu):
         m = nn.Sequential()
-        m.add_module('conv', nn.Conv2d(flt_in, flt_out, k, stride=stride, padding=padding, bias=bias))
+        # Apply spectral normalization
+        conv = nn.Conv2d(flt_in, flt_out, k, stride=stride, padding=padding, bias=bias)
+        conv = nn_utils.spectral_norm(conv)
+        m.add_module('conv', conv)
+        
         if norm is not None:
             m.add_module('norm', norm(flt_out))
         if relu is not None:
@@ -256,7 +267,7 @@ class DiscriminatorN_IN(nn.Module):
         return m
 
     def forward(self, x):
-        return self.net(x), None # 2nd is class?
+        return self.net(x), None  # 2nd is class?
 
 
 #####
