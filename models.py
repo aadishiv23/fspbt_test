@@ -378,4 +378,5 @@ class PerceptualVGG19(nn.Module):
 
     def forward(self, x):
         x = self.normalize(x)
-        return self.extract_features(x)
+        features = self.extract_features(x)
+        return None, features
